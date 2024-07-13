@@ -1,23 +1,33 @@
-# Check the instructions here on how to use it https://ma.yagg.cf/
-
 $ErrorActionPreference = "Stop"
-
 
 # Enable TLSv1.2 for compatibility with older clients for current session
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
 
-$DownloadURL = 'https://ma.yagg.cf/MAS/All-In-One-Version/MAS_AIO-CRC32_31F7FD1E.cmd'
+$DownloadURL1 = 'https://ma.yagg.cf/MAS/All-In-One-Version/MAS_AIO-CRC32_31F7FD1E.cmd'
 $DownloadURL2 = 'https://bitbucket.org/WindowsAddict/microsoft-activation-scripts/raw/0884271c4fcdc72d95bce7c5c7bdf77ef4a9bcef/MAS/All-In-One-Version/MAS_AIO-CRC32_31F7FD1E.cmd'
 
 $URLs = @($DownloadURL1, $DownloadURL2)
 $RandomURL1 = Get-Random -InputObject $URLs
-$RandomURL2 = $URLs -ne $RandomURL1
+$RandomURL2 = $URLs | Where-Object { $_ -ne $RandomURL1 }
 
 try {
     $response = Invoke-WebRequest -Uri $RandomURL1 -UseBasicParsing
+    $content = $response.Content
 }
 catch {
-	$response = Invoke-WebRequest -Uri $RandomURL2 -UseBasicParsing
+    try {
+        $response = Invoke-WebRequest -Uri $RandomURL2 -UseBasicParsing
+        $content = $response.Content
+    }
+    catch {
+        Write-Error "Both download attempts failed."
+        exit 1
+    }
+}
+
+if (-not $content) {
+    Write-Error "Failed to retrieve content from both URLs."
+    exit 1
 }
 
 $rand = Get-Random -Maximum 99999999
@@ -26,11 +36,10 @@ $FilePath = if ($isAdmin) { "$env:SystemRoot\Temp\MAS_$rand.cmd" } else { "$env:
 
 $ScriptArgs = "$args "
 $prefix = "@::: $rand `r`n"
-$content = $prefix + $response
+$content = $prefix + $content
 Set-Content -Path $FilePath -Value $content
 
 Start-Process $FilePath $ScriptArgs -Wait
 
 $FilePaths = @("$env:TEMP\MAS*.cmd", "$env:SystemRoot\Temp\MAS*.cmd")
 foreach ($FilePath in $FilePaths) { Get-Item $FilePath | Remove-Item }
-
